@@ -2,13 +2,14 @@
   "name": "@nexved/backend-framework",
   "version": "1.0.0",
   "description": "Production-ready Node.js backend framework with multi-database support",
-  "main": "bin/index.js",
+  "type": "module",
+  "main": "bin/cli.js",
   "bin": {
-    "create-backend-app": "./bin/index.js",
-    "backend-framework": "./bin/index.js"
+    "create-backend-app": "./bin/cli.js",
+    "backend-framework": "./bin/cli.js"
   },
   "scripts": {
-    "dev": "tsx watch bin/index.ts",
+    "dev": "tsx watch bin/cli.ts",
     "build": "tsc -p tsconfig.cli.json",
     "prepublishOnly": "npm run build",
     "test": "vitest",
@@ -29,7 +30,10 @@
     "drizzle",
     "api",
     "rest",
-    "typescript"
+    "typescript",
+    "cli",
+    "framework",
+    "npx"
   ],
   "author": "NexVed",
   "license": "MIT",
