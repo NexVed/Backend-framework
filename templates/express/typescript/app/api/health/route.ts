@@ -1,9 +1,17 @@
-import { Router } from "express";
+/**
+ * Health Check Route
+ */
 
-const router = Router();
+import { Request, Response } from 'express';
+import { db } from '../../../database';
 
-router.get("/", (req, res) => {
-  res.json({ status: "ok" });
-});
+export const GET = async (req: Request, res: Response) => {
+  const dbHealth = await db.healthCheck();
 
-export default router;
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    databases: dbHealth,
+  });
+};

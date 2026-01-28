@@ -1,25 +1,50 @@
 import fs from "fs";
 import path from "path";
-import { Express, Router } from "express";
+import { Express, Request, Response, NextFunction } from "express";
+import { RouteExport } from "../types/middleware";
+
+type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
+
+const METHOD_MAP: Record<string, HttpMethod> = {
+  GET: "get",
+  POST: "post",
+  PUT: "put",
+  PATCH: "patch",
+  DELETE: "delete",
+};
 
 /**
- * Load all app/api/*
- * route.ts files and mount them automatically.
+ * Converts folder path to Express route path
+ * users/[id] -> /users/:id
  */
+function toRoutePath(apiDir: string, dir: string): string {
+  const relativePath = dir.replace(apiDir, "");
+
+  return (
+    "/api" +
+    dir
+      .replace(apiDir, "")               // Remove apiDir prefix
+      .replace(/\\/g, "/")                 // Windows support
+      .replace(/\[([^\]]+)\]/g, ":$1")     // [id] → :id
+  );
+}
+
+function normalizeHandlers(exported: RouteExport) {
+  return Array.isArray(exported) ? exported : [exported];
+}
+
 export function loadRoutes(app: Express) {
   const apiDir = path.join(process.cwd(), "app", "api");
 
   if (!fs.existsSync(apiDir)) {
-    console.warn("⚠️ app/api folder not found");
+    console.warn(`API directory not found at ${apiDir}, skipping route registration`);
     return;
   }
 
   walk(apiDir);
 
   function walk(dir: string) {
-    const files = fs.readdirSync(dir);
-
-    for (const file of files) {
+    for (const file of fs.readdirSync(dir)) {
       const fullPath = path.join(dir, file);
 
       if (fs.statSync(fullPath).isDirectory()) {
@@ -27,25 +52,30 @@ export function loadRoutes(app: Express) {
         continue;
       }
 
-      if (file === "route.ts") {
-        const routeModule = require(fullPath);
+      if (file !== "route.ts") continue;
 
-        const router: Router = routeModule.default;
-        if (!router) {
-          throw new Error(`route.ts must export a default Express Router: ${fullPath}`);
-        }
+      const routeModule = require(fullPath);
+      const routePath = toRoutePath(apiDir, dir);
 
-        // Convert folder path → URL
-        const routePath =
-          "/api" +
-          dir
-            .replace(apiDir, "")
-            .replace(/\\/g, "/"); // Windows fix
+      Object.keys(METHOD_MAP).forEach((methodKey) => {
+        const handler = routeModule[methodKey];
+        if (!handler) return;
 
-        app.use(routePath, router);
+        const expressMethod = METHOD_MAP[methodKey];
 
-        console.log(`✅ Route loaded: ${routePath}`);
-      }
+        app[expressMethod](
+          routePath,
+          async (req: Request, res: Response, next: NextFunction) => {
+            try {
+              await handler(req, res, next);
+            } catch (err) {
+              next(err);
+            }
+          }
+        );
+
+        console.log(`✅ ${methodKey} ${routePath}`);
+      });
     }
   }
 }
